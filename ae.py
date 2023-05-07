@@ -152,9 +152,9 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
     return loss.item() / target_length
 
 
-def trainIters(encoder, decoder, pairs, n_iters, device, max_length, teacher_ratio=0.5,
-               print_every=1000, plot_every=100, learning_rate=0.01, plot_show=False,
-               path=None):
+def trainIters(encoder, decoder, input_lang, output_lang, pairs, n_iters, device,
+               max_length, teacher_ratio=0.5, print_every=1000, plot_every=100,
+               learning_rate=0.01, plot_show=False, path=None):
     start = time.time()
 
     # Create a matlibplot canvas for plotting learning curves
@@ -166,8 +166,8 @@ def trainIters(encoder, decoder, pairs, n_iters, device, max_length, teacher_rat
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [tensorsFromPair(random.choice(pairs), device)
-                      for i in range(n_iters)]
+    training_pairs = [tensorsFromPair(input_lang, output_lang, random.choice(pairs),
+                                      device) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
@@ -186,10 +186,13 @@ def trainIters(encoder, decoder, pairs, n_iters, device, max_length, teacher_rat
             print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
                                          iter, iter / n_iters * 100, print_loss_avg))
 
+            if path is not None:
+                torch.save(encoder.state_dict(), path + 'models/encoder.pth')
+                torch.save(decoder.state_dict(), path + 'models/decoder.pth')
+
         if iter % plot_every == 0:
             plot_loss_avg = plot_loss_total / plot_every
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
-            # showPlot(plot_losses)
             plot_loss(axs, plot_losses, plot_freq=plot_every, show=plot_show, save=True,
                       path=path)

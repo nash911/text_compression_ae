@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 from ae import EncoderRNN, AttnDecoderRNN, trainIters
 
-from utils import prepareData
+from utils import prepareData, evaluateRandomly
 
 def main(args):
     torch.manual_seed(args.seed)
@@ -47,16 +47,19 @@ def main(args):
 
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
 
-    input_lang, output_lang, pairs = prepareData('eng', 'fra', True)
+    input_lang, output_lang, pairs = prepareData('eng', 'fra', args.max_length, True)
     print(random.choice(pairs))
 
     encoder1 = EncoderRNN(input_lang.n_words, args.hidden_size, device).to(device)
     attn_decoder1 = AttnDecoderRNN(args.hidden_size, output_lang.n_words, args.max_length,
                                    device, dropout_p=0.1).to(device)
 
-    trainIters(encoder1, attn_decoder1, pairs, n_iters=args.n_iters, device=device,
-               max_length=args.max_length, teacher_ratio=args.teacher_ratio,
-               print_every=100, plot_show=args.plot, path=training_dir)
+    trainIters(encoder1, attn_decoder1, input_lang, output_lang, pairs,
+               n_iters=args.n_iters, device=device, max_length=args.max_length,
+               teacher_ratio=args.teacher_ratio, print_every=100, plot_show=args.plot,
+               path=training_dir)
+
+    evaluateRandomly(encoder1, attn_decoder1, input_lang, output_lang, pairs, args.max_length, device, n=10)
 
 
 if __name__ == "__main__":

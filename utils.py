@@ -73,20 +73,20 @@ def readLangs(lang1, lang2, reverse=False):
     return input_lang, output_lang, pairs
 
 
-def filterPair(p):
-    return len(p[0].split(' ')) < MAX_LENGTH and \
-        len(p[1].split(' ')) < MAX_LENGTH and \
+def filterPair(p, max_length):
+    return len(p[0].split(' ')) < max_length and \
+        len(p[1].split(' ')) < max_length and \
         p[1].startswith(eng_prefixes)
 
 
-def filterPairs(pairs):
-    return [pair for pair in pairs if filterPair(pair)]
+def filterPairs(pairs, max_length):
+    return [pair for pair in pairs if filterPair(pair, max_length)]
 
 
-def prepareData(lang1, lang2, reverse=False):
+def prepareData(lang1, lang2, max_length, reverse=False):
     input_lang, output_lang, pairs = readLangs(lang1, lang2, reverse)
     print("Read %s sentence pairs" % len(pairs))
-    pairs = filterPairs(pairs)
+    pairs = filterPairs(pairs, max_length)
     print("Trimmed to %s sentence pairs" % len(pairs))
     print("Counting words...")
     for pair in pairs:
@@ -96,10 +96,6 @@ def prepareData(lang1, lang2, reverse=False):
     print(input_lang.name, input_lang.n_words)
     print(output_lang.name, output_lang.n_words)
     return input_lang, output_lang, pairs
-
-
-input_lang, output_lang, pairs = prepareData('eng', 'fra', True)
-print(random.choice(pairs))
 
 
 def indexesFromSentence(lang, sentence):
@@ -112,7 +108,7 @@ def tensorFromSentence(lang, sentence, device):
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 
-def tensorsFromPair(pair, device):
+def tensorsFromPair(input_lang, output_lang, pair, device):
     input_tensor = tensorFromSentence(input_lang, pair[0], device)
     target_tensor = tensorFromSentence(output_lang, pair[1], device)
     return (input_tensor, target_tensor)
@@ -153,9 +149,9 @@ def plot_loss(axs, train_loss, plot_freq=1, show=False, save=True, path=None):
         plt.pause(0.01)
 
 
-def evaluate(encoder, decoder, sentence, device, max_length=MAX_LENGTH):
+def evaluate(encoder, decoder, input_lang, output_lang, sentence, max_length, device):
     with torch.no_grad():
-        input_tensor = tensorFromSentence(input_lang, sentence)
+        input_tensor = tensorFromSentence(input_lang, sentence, device)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
@@ -188,12 +184,13 @@ def evaluate(encoder, decoder, sentence, device, max_length=MAX_LENGTH):
         return decoded_words, decoder_attentions[:di + 1]
 
 
-def evaluateRandomly(encoder, decoder, n=10):
+def evaluateRandomly(encoder, decoder, input_lang, output_lang, pairs, max_length, device, n=10):
     for i in range(n):
         pair = random.choice(pairs)
         print('>', pair[0])
         print('=', pair[1])
-        output_words, attentions = evaluate(encoder, decoder, pair[0])
+        output_words, attentions = evaluate(encoder, decoder, input_lang, output_lang,
+                                            pair[0], max_length, device)
         output_sentence = ' '.join(output_words)
         print('<', output_sentence)
         print('')
