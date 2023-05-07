@@ -1,17 +1,10 @@
 from __future__ import unicode_literals, print_function, division
-# from io import open
-# import unicodedata
-# import string
-# import re
 import random
 import time
-# import math
-
 import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
-from torch import optim
 import torch.nn.functional as F
 
 from utils import tensorsFromPair, timeSince, plot_loss
@@ -152,9 +145,9 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
     return loss.item() / target_length
 
 
-def trainIters(encoder, decoder, input_lang, output_lang, pairs, n_iters, device,
-               max_length, teacher_ratio=0.5, print_every=1000, plot_every=100,
-               learning_rate=0.01, plot_show=False, path=None):
+def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimizer,
+               decoder_optimizer, n_iters, device, max_length, teacher_ratio=0.5,
+               print_every=1000, plot_every=100, plot_show=False, path=None):
     start = time.time()
 
     # Create a matlibplot canvas for plotting learning curves
@@ -164,8 +157,6 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, n_iters, device
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
 
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     training_pairs = [tensorsFromPair(input_lang, output_lang, random.choice(pairs),
                                       device) for i in range(n_iters)]
     criterion = nn.NLLLoss()

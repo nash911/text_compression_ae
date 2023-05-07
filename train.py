@@ -1,8 +1,4 @@
 from __future__ import unicode_literals, print_function, division
-# from io import open
-# import unicodedata
-# import string
-# import re
 import random
 
 import numpy as np
@@ -14,11 +10,7 @@ import argparse
 from datetime import datetime
 from shutil import rmtree
 
-# import time
-# import math
-
-import matplotlib.pyplot as plt
-# import matplotlib.ticker as ticker
+from torch import optim
 
 from ae import EncoderRNN, AttnDecoderRNN, trainIters
 
@@ -54,12 +46,19 @@ def main(args):
     attn_decoder1 = AttnDecoderRNN(args.hidden_size, output_lang.n_words, args.max_length,
                                    device, dropout_p=0.1).to(device)
 
-    trainIters(encoder1, attn_decoder1, input_lang, output_lang, pairs,
-               n_iters=args.n_iters, device=device, max_length=args.max_length,
-               teacher_ratio=args.teacher_ratio, print_every=100, plot_show=args.plot,
-               path=training_dir)
+    # encoder_optimizer = optim.SGD(encoder1.parameters(), lr=args.lr)
+    # decoder_optimizer = optim.SGD(attn_decoder1.parameters(), lr=args.lr)
 
-    evaluateRandomly(encoder1, attn_decoder1, input_lang, output_lang, pairs, args.max_length, device, n=10)
+    encoder_optimizer = optim.Adam(encoder1.parameters(), lr=args.lr)
+    decoder_optimizer = optim.Adam(attn_decoder1.parameters(), lr=args.lr)
+
+    trainIters(encoder1, attn_decoder1, input_lang, output_lang, pairs, encoder_optimizer,
+               decoder_optimizer, n_iters=args.n_iters, device=device, path=training_dir,
+               max_length=args.max_length, teacher_ratio=args.teacher_ratio,
+               print_every=100, plot_show=args.plot)
+
+    evaluateRandomly(encoder1, attn_decoder1, input_lang, output_lang, pairs,
+                     args.max_length, device, n=10)
 
 
 if __name__ == "__main__":
@@ -72,8 +71,8 @@ if __name__ == "__main__":
                         help='maximum sequence length (default: 10)')
     parser.add_argument('--teacher_ratio', type=float, default=0.5,
                         help='teacher forcing ratio for decoder input (default: 0.5)')
-    parser.add_argument('--lr', type=float, default=0.01,
-                        help='learning rate for optimizer (default: 0.01)')
+    parser.add_argument('--lr', type=float, default=0.001,
+                        help='learning rate for optimizer (default: 0.001)')
     parser.add_argument('--n_iters', type=int, default=75000,
                         help='number of training iterations (default: 75000)')
     parser.add_argument('--data-path', type=str, default=None,
