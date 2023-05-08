@@ -1,23 +1,16 @@
 from __future__ import unicode_literals, print_function, division
-import numpy as np
 from io import open
+
+import numpy as np
 import unicodedata
-# import string
+import torch
 import re
 import random
-
 import time
 import math
 
 import matplotlib.pyplot as plt
-# import matplotlib.ticker as ticker
-#
-
-import torch
-
 from lang import Lang
-
-# plt.switch_backend('agg')
 
 SOS_token = 0
 EOS_token = 1
@@ -128,14 +121,13 @@ def timeSince(since, percent):
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
-def plot_loss(axs, train_loss, plot_freq=1, show=False, save=True, path=None):
+def plot_loss(axs, train_loss, valid_loss, plot_freq=1, show=False, save=True, path=None):
     # Training (NLL) Loss plot
     x = (np.arange(len(train_loss)) * plot_freq).tolist()
     axs.clear()
     axs.plot(x, train_loss, color='red',
              label='Train Loss')
-    # if len(test_loss) > 0:
-    #     axs.plot(list(range(len(test_loss))), test_loss, color='blue', label='Test Loss')
+    axs.plot(x, valid_loss, color='blue', label='Validation Loss')
     axs.set(title='Learning Curves')
     axs.set(ylabel='NLLL')
     axs.set(xlabel='Iterations')
@@ -184,7 +176,8 @@ def evaluate(encoder, decoder, input_lang, output_lang, sentence, max_length, de
         return decoded_words, decoder_attentions[:di + 1]
 
 
-def evaluateRandomly(encoder, decoder, input_lang, output_lang, pairs, max_length, device, n=10):
+def evaluateRandomly(encoder, decoder, input_lang, output_lang, pairs, max_length, device,
+                     n=10):
     for i in range(n):
         pair = random.choice(pairs)
         print('>', pair[0])

@@ -16,6 +16,7 @@ from ae import EncoderRNN, AttnDecoderRNN, trainIters
 
 from utils import prepareData, evaluateRandomly
 
+
 def main(args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
