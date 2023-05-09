@@ -42,6 +42,7 @@ def main(args):
 
     input_lang, output_lang, pairs = prepareData('eng', 'fra', args.max_length, True)
     print(random.choice(pairs))
+    print(f"len(pairs): {len(pairs)}")
 
     encoder1 = EncoderRNN(input_lang.n_words, args.hidden_size, device).to(device)
     attn_decoder1 = AttnDecoderRNN(args.hidden_size, output_lang.n_words, args.max_length,

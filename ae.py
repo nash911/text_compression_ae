@@ -1,4 +1,5 @@
 from __future__ import unicode_literals, print_function, division
+import numpy as np
 import random
 import time
 import matplotlib.pyplot as plt
@@ -192,12 +193,24 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
     plot_train_loss_total = 0  # Reset every plot_every
     valid_loss_total = 0  # Reset every plot_every
 
-    training_pairs = [tensorsFromPair(input_lang, output_lang, random.choice(pairs),
-                                      device) for i in range(n_iters)]
+    # Split data into training and validation sets
+    num_pairs = len(pairs)
+    train_size = int(num_pairs * 0.8)
+    pair_inds = np.arange(num_pairs)
+    np.random.shuffle(pair_inds)
+    train_inds = pair_inds[:train_size]
+    eval_inds = pair_inds[train_size:]
+
+    # Create tensor from pairs for training and validation sets
+    training_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
+                      for ind in train_inds]
+    eval_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
+                  for ind in eval_inds]
+
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
-        training_pair = training_pairs[iter - 1]
+        training_pair = random.choice(training_pairs)
         input_tensor = training_pair[0]
         target_tensor = training_pair[1]
 
@@ -208,11 +221,9 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
 
         if iter % print_every == 0:
             # Evaluate current model
-            eval_pairs = [tensorsFromPair(input_lang, output_lang, random.choice(pairs),
-                                          device) for i in range(n_evals)]
             valid_loss_total = 0
             for el in range(n_evals):
-                eval_pair = eval_pairs[el]
+                eval_pair = random.choice(eval_pairs)
                 input_tensor = eval_pair[0]
                 target_tensor = eval_pair[1]
 
