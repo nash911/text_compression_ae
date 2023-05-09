@@ -12,9 +12,9 @@ from shutil import rmtree
 
 from torch import optim
 
-from ae import EncoderRNN, AttnDecoderRNN, trainIters
+from ae import EncoderRNN, DecoderRNN, AttnDecoderRNN, trainIters
 
-from utils import prepareData, evaluateRandomly
+from utils import prepareData
 
 
 def main(args):
@@ -44,23 +44,25 @@ def main(args):
     print(random.choice(pairs))
     print(f"len(pairs): {len(pairs)}")
 
-    encoder1 = EncoderRNN(input_lang.n_words, args.hidden_size, device).to(device)
-    attn_decoder1 = AttnDecoderRNN(args.hidden_size, output_lang.n_words, args.max_length,
-                                   device, dropout_p=0.1).to(device)
+    encoder = EncoderRNN(input_lang.n_words, args.hidden_size, device).to(device)
 
-    # encoder_optimizer = optim.SGD(encoder1.parameters(), lr=args.lr)
-    # decoder_optimizer = optim.SGD(attn_decoder1.parameters(), lr=args.lr)
+    if args.attention:
+        decoder = AttnDecoderRNN(args.hidden_size, output_lang.n_words, args.max_length,
+                                 device, dropout_p=args.dropout).to(device)
+    else:
+        decoder = DecoderRNN(args.hidden_size, output_lang.n_words, device).to(device)
 
-    encoder_optimizer = optim.Adam(encoder1.parameters(), lr=args.lr)
-    decoder_optimizer = optim.Adam(attn_decoder1.parameters(), lr=args.lr)
+    # encoder_optimizer = optim.SGD(encoder.parameters(), lr=args.lr)
+    # decoder_optimizer = optim.SGD(decoder.parameters(), lr=args.lr)
 
-    trainIters(encoder1, attn_decoder1, input_lang, output_lang, pairs, encoder_optimizer,
-               decoder_optimizer, n_iters=args.n_iters, device=device, path=training_dir,
-               max_length=args.max_length, teacher_ratio=args.teacher_ratio,
-               print_every=100, plot_show=args.plot)
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=args.lr)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=args.lr)
 
-    evaluateRandomly(encoder1, attn_decoder1, input_lang, output_lang, pairs,
-                     args.max_length, device, n=10)
+    trainIters(
+        encoder, decoder, input_lang, output_lang, pairs, encoder_optimizer,
+        decoder_optimizer, n_iters=args.n_iters, device=device, path=training_dir,
+        max_length=args.max_length, teacher_ratio=args.teacher_ratio, print_every=100,
+        plot_show=args.plot)
 
 
 if __name__ == "__main__":
@@ -69,8 +71,13 @@ if __name__ == "__main__":
                         help='input batch size for training (default: 32)')
     parser.add_argument('--hidden_size', type=int, default=256,
                         help='hidden representation size (default: 256)')
+    parser.add_argument('--attention', type=bool, default=False,
+                        action=argparse.BooleanOptionalAction,
+                        help='attention mechanism for decoder (default: False)')
     parser.add_argument('--max_length', type=int, default=10,
                         help='maximum sequence length (default: 10)')
+    parser.add_argument('--dropout', type=float, default=0.1,
+                        help='dropout probability (default: 0.1)')
     parser.add_argument('--teacher_ratio', type=float, default=0.5,
                         help='teacher forcing ratio for decoder input (default: 0.5)')
     parser.add_argument('--lr', type=float, default=0.001,

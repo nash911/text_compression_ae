@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import tensorsFromPair, timeSince, plot_loss
+from utils import tensorFromSentence, tensorsFromPair, timeSince, plot_loss
 
 SOS_token = 0
 EOS_token = 1
@@ -93,29 +93,37 @@ class AttnDecoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=self.device)
 
 
-def eval(input_tensor, target_tensor, encoder, decoder, criterion, max_length, device):
-    with torch.no_grad():
-        encoder_hidden = encoder.initHidden()
+def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
+          decoder_optimizer, criterion, teacher_ratio, device):
+    encoder_hidden = encoder.initHidden()
 
-        input_length = input_tensor.size(0)
-        target_length = target_tensor.size(0)
+    encoder_optimizer.zero_grad()
+    decoder_optimizer.zero_grad()
 
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+    input_length = input_tensor.size(0)
+    target_length = target_tensor.size(0)
 
-        loss = 0
+    loss = 0
 
-        for ei in range(input_length):
-            encoder_output, encoder_hidden = encoder(
-                input_tensor[ei], encoder_hidden)
-            encoder_outputs[ei] = encoder_output[0, 0]
+    for ei in range(input_length):
+        encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
 
-        decoder_input = torch.tensor([[SOS_token]], device=device)
+    decoder_input = torch.tensor([[SOS_token]], device=device)
+    decoder_hidden = encoder_hidden
 
-        decoder_hidden = encoder_hidden
+    use_teacher_forcing = True if random.random() < teacher_ratio else False
 
+    if use_teacher_forcing:
+        # Teacher forcing: Feed the target as the next input
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            loss += criterion(decoder_output, target_tensor[di])
+            decoder_input = target_tensor[di]  # Teacher forcing
+
+    else:
+        # Without teacher forcing: use its own predictions as the next input
+        for di in range(target_length):
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()  # detach from history as input
 
@@ -123,11 +131,16 @@ def eval(input_tensor, target_tensor, encoder, decoder, criterion, max_length, d
             if decoder_input.item() == EOS_token:
                 break
 
-        return loss.item() / target_length
+    loss.backward()
+
+    encoder_optimizer.step()
+    decoder_optimizer.step()
+
+    return loss.item() / target_length
 
 
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
-          decoder_optimizer, criterion, max_length, teacher_ratio, device):
+def train_attention(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
+                    decoder_optimizer, criterion, max_length, teacher_ratio, device):
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -188,10 +201,10 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
     fig, axs = plt.subplots(1, figsize=(10, 6))
 
     train_losses = []
-    valid_losses = []
+    test_losses = []
     print_train_loss_total = 0  # Reset every print_every
     plot_train_loss_total = 0  # Reset every plot_every
-    valid_loss_total = 0  # Reset every plot_every
+    test_loss_total = 0  # Reset every plot_every
 
     # Split data into training and validation sets
     num_pairs = len(pairs)
@@ -199,13 +212,13 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
     pair_inds = np.arange(num_pairs)
     np.random.shuffle(pair_inds)
     train_inds = pair_inds[:train_size]
-    eval_inds = pair_inds[train_size:]
+    test_inds = pair_inds[train_size:]
 
     # Create tensor from pairs for training and validation sets
     training_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
                       for ind in train_inds]
-    eval_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
-                  for ind in eval_inds]
+    test_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
+                  for ind in test_inds]
 
     criterion = nn.NLLLoss()
 
@@ -214,31 +227,42 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
         input_tensor = training_pair[0]
         target_tensor = training_pair[1]
 
-        loss = train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
-                     decoder_optimizer, criterion, max_length, teacher_ratio, device)
+        if type(decoder) == AttnDecoderRNN:
+            loss = train_attention(
+                input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
+                decoder_optimizer, criterion, max_length, teacher_ratio, device)
+        else:
+            loss = train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
+                         decoder_optimizer, criterion, teacher_ratio, device)
+
         print_train_loss_total += loss
         plot_train_loss_total += loss
 
         if iter % print_every == 0:
             # Evaluate current model
-            valid_loss_total = 0
+            test_loss_total = 0
             for el in range(n_evals):
-                eval_pair = random.choice(eval_pairs)
-                input_tensor = eval_pair[0]
-                target_tensor = eval_pair[1]
+                test_pair = random.choice(test_pairs)
+                input_tensor = test_pair[0]
+                target_tensor = test_pair[1]
 
-                valid_loss_total += eval(input_tensor, target_tensor, encoder, decoder,
-                                         criterion, max_length, device)
+                if type(decoder) == AttnDecoderRNN:
+                    test_loss_total += test_attention(
+                        input_tensor, target_tensor, encoder, decoder, criterion,
+                        max_length, device)
+                else:
+                    test_loss_total += test(
+                        input_tensor, target_tensor, encoder, decoder, criterion, device)
 
             print_loss_avg = print_train_loss_total / print_every
             print_train_loss_total = 0
 
-            valid_loss_avg = valid_loss_total / n_evals
-            valid_losses.append(valid_loss_avg)
+            test_loss_avg = test_loss_total / n_evals
+            test_losses.append(test_loss_avg)
 
             print('%s (%d %d%%) %.4f - %.4f' %
                   (timeSince(start, iter / n_iters), iter, iter / n_iters * 100,
-                   print_loss_avg, valid_loss_avg))
+                   print_loss_avg, test_loss_avg))
 
             if path is not None:
                 torch.save(encoder.state_dict(), path + 'models/encoder.pth')
@@ -248,5 +272,153 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
             plot_loss_avg = plot_train_loss_total / plot_every
             train_losses.append(plot_loss_avg)
             plot_train_loss_total = 0
-            plot_loss(axs, train_losses, valid_losses, plot_freq=plot_every,
+            plot_loss(axs, train_losses, test_losses, plot_freq=plot_every,
                       show=plot_show, save=True, path=path)
+
+    eval_pairs = [pairs[ind] for ind in test_inds]
+    evaluateRandomly(encoder, decoder, input_lang, output_lang, eval_pairs, max_length,
+                     device, n=10)
+
+
+def test(input_tensor, target_tensor, encoder, decoder, criterion, device):
+    with torch.no_grad():
+        encoder_hidden = encoder.initHidden()
+
+        input_length = input_tensor.size(0)
+        target_length = target_tensor.size(0)
+
+        loss = 0
+
+        for ei in range(input_length):
+            encoder_output, encoder_hidden = encoder(
+                input_tensor[ei], encoder_hidden)
+
+        decoder_input = torch.tensor([[SOS_token]], device=device)
+        decoder_hidden = encoder_hidden
+
+        for di in range(target_length):
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            topv, topi = decoder_output.topk(1)
+            decoder_input = topi.squeeze().detach()  # detach from history as input
+
+            loss += criterion(decoder_output, target_tensor[di])
+            if decoder_input.item() == EOS_token:
+                break
+
+        return loss.item() / target_length
+
+
+def test_attention(input_tensor, target_tensor, encoder, decoder, criterion, max_length,
+                   device):
+    with torch.no_grad():
+        encoder_hidden = encoder.initHidden()
+
+        input_length = input_tensor.size(0)
+        target_length = target_tensor.size(0)
+
+        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+
+        loss = 0
+
+        for ei in range(input_length):
+            encoder_output, encoder_hidden = encoder(
+                input_tensor[ei], encoder_hidden)
+            encoder_outputs[ei] = encoder_output[0, 0]
+
+        decoder_input = torch.tensor([[SOS_token]], device=device)
+
+        decoder_hidden = encoder_hidden
+
+        for di in range(target_length):
+            decoder_output, decoder_hidden, decoder_attention = decoder(
+                decoder_input, decoder_hidden, encoder_outputs)
+            topv, topi = decoder_output.topk(1)
+            decoder_input = topi.squeeze().detach()  # detach from history as input
+
+            loss += criterion(decoder_output, target_tensor[di])
+            if decoder_input.item() == EOS_token:
+                break
+
+        return loss.item() / target_length
+
+
+def evaluate(encoder, decoder, input_lang, output_lang, sentence, device):
+    with torch.no_grad():
+        input_tensor = tensorFromSentence(input_lang, sentence, device)
+        input_length = input_tensor.size()[0]
+        encoder_hidden = encoder.initHidden()
+
+        for ei in range(input_length):
+            encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
+
+        decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
+        decoder_hidden = encoder_hidden
+
+        decoded_words = []
+
+        # for di in range(max_length):
+        while True:
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
+            topv, topi = decoder_output.data.topk(1)
+            if topi.item() == EOS_token:
+                decoded_words.append('<EOS>')
+                break
+            else:
+                decoded_words.append(output_lang.index2word[topi.item()])
+
+            decoder_input = topi.squeeze().detach()
+
+        return decoded_words
+
+
+def evaluate_attention(encoder, decoder, input_lang, output_lang, sentence, max_length,
+                       device):
+    with torch.no_grad():
+        input_tensor = tensorFromSentence(input_lang, sentence, device)
+        input_length = input_tensor.size()[0]
+        encoder_hidden = encoder.initHidden()
+
+        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+
+        for ei in range(input_length):
+            encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
+            encoder_outputs[ei] += encoder_output[0, 0]
+
+        decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
+
+        decoder_hidden = encoder_hidden
+
+        decoded_words = []
+        decoder_attentions = torch.zeros(max_length, max_length)
+
+        for di in range(max_length):
+            decoder_output, decoder_hidden, decoder_attention = decoder(
+                decoder_input, decoder_hidden, encoder_outputs)
+            decoder_attentions[di] = decoder_attention.data
+            topv, topi = decoder_output.data.topk(1)
+            if topi.item() == EOS_token:
+                decoded_words.append('<EOS>')
+                break
+            else:
+                decoded_words.append(output_lang.index2word[topi.item()])
+
+            decoder_input = topi.squeeze().detach()
+
+        return decoded_words, decoder_attentions[:di + 1]
+
+
+def evaluateRandomly(encoder, decoder, input_lang, output_lang, pairs, max_length, device,
+                     n=10):
+    for i in range(n):
+        pair = random.choice(pairs)
+        print('>', pair[0])
+        print('=', pair[1])
+        if type(decoder) == AttnDecoderRNN:
+            output_words, attentions = evaluate_attention(
+                encoder, decoder, input_lang, output_lang, pair[0], max_length, device)
+        else:
+            output_words = \
+                evaluate(encoder, decoder, input_lang, output_lang, pair[0], device)
+        output_sentence = ' '.join(output_words)
+        print('<', output_sentence)
+        print('')
