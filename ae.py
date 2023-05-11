@@ -208,7 +208,7 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
 
     # Split data into training and validation sets
     num_pairs = len(pairs)
-    train_size = int(num_pairs * 0.8)
+    train_size = int(num_pairs * 0.9)
     pair_inds = np.arange(num_pairs)
     np.random.shuffle(pair_inds)
     train_inds = pair_inds[:train_size]
@@ -219,6 +219,8 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
                       for ind in train_inds]
     test_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
                   for ind in test_inds]
+
+    print(f"Train Size: {len(train_inds)} -- Test Size: {len(test_inds)}")
 
     criterion = nn.NLLLoss()
 
