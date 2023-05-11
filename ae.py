@@ -194,7 +194,8 @@ def train_attention(input_tensor, target_tensor, encoder, decoder, encoder_optim
 
 def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimizer,
                decoder_optimizer, n_iters, device, max_length, teacher_ratio=0.5,
-               n_evals=20, print_every=1000, plot_every=100, plot_show=False, path=None):
+               n_evals=20, print_every=1000, eval_every=1000, plot_every=100,
+               plot_show=False, path=None):
     start = time.time()
 
     # Create a matlibplot canvas for plotting learning curves
@@ -219,6 +220,7 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
                       for ind in train_inds]
     test_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
                   for ind in test_inds]
+    eval_pairs = [pairs[ind] for ind in test_inds]
 
     print(f"Train Size: {len(train_inds)} -- Test Size: {len(test_inds)}")
 
@@ -277,7 +279,13 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
             plot_loss(axs, train_losses, test_losses, plot_freq=plot_every,
                       show=plot_show, save=True, path=path)
 
-    eval_pairs = [pairs[ind] for ind in test_inds]
+        if iter % eval_every == 0:
+            print(f"\nModel evaluation after {iter} iterations:")
+            evaluateRandomly(encoder, decoder, input_lang, output_lang, eval_pairs, max_length,
+                             device, n=10)
+
+    # Final Model Evaluation
+    print("\nFinal Model Evaluation:")
     evaluateRandomly(encoder, decoder, input_lang, output_lang, eval_pairs, max_length,
                      device, n=10)
 

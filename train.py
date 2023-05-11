@@ -64,7 +64,7 @@ def main(args):
         encoder, decoder, input_lang, output_lang, pairs, encoder_optimizer,
         decoder_optimizer, n_iters=args.n_iters, device=device, path=training_dir,
         max_length=args.max_length, teacher_ratio=args.teacher_ratio, print_every=100,
-        plot_show=args.plot)
+        eval_every=5000, plot_show=args.plot)
 
 
 if __name__ == "__main__":
