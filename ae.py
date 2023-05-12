@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import tensorFromSentence, tensorsFromPair, timeSince, plot_loss
+from utils import tensorFromSentence, timeSince, plot_loss
 
 SOS_token = 0
 EOS_token = 1
@@ -192,10 +192,10 @@ def train_attention(input_tensor, target_tensor, encoder, decoder, encoder_optim
     return loss.item() / target_length
 
 
-def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimizer,
-               decoder_optimizer, n_iters, device, max_length, teacher_ratio=0.5,
-               n_evals=20, print_every=1000, eval_every=1000, plot_every=100,
-               plot_show=False, path=None):
+def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_optimizer,
+               n_iters, device, max_length, teacher_ratio=0.5, n_evals=20,
+               print_every=1000, eval_every=1000, plot_every=100, plot_show=False,
+               path=None):
     start = time.time()
 
     # Create a matlibplot canvas for plotting learning curves
@@ -208,28 +208,28 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
     test_loss_total = 0  # Reset every plot_every
 
     # Split data into training and validation sets
-    num_pairs = len(pairs)
-    train_size = int(num_pairs * 0.9)
-    pair_inds = np.arange(num_pairs)
-    np.random.shuffle(pair_inds)
-    train_inds = pair_inds[:train_size]
-    test_inds = pair_inds[train_size:]
+    num_sentences = len(sentences)
+    train_size = int(num_sentences * 0.9)
+    sentence_inds = np.arange(num_sentences)
+    np.random.shuffle(sentence_inds)
+    train_inds = sentence_inds[:train_size]
+    test_inds = sentence_inds[train_size:]
 
-    # Create tensor from pairs for training and validation sets
-    training_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
-                      for ind in train_inds]
-    test_pairs = [tensorsFromPair(input_lang, output_lang, pairs[ind], device)
-                  for ind in test_inds]
-    eval_pairs = [pairs[ind] for ind in test_inds]
+    # Create tensor from sentences for training and validation sets
+    training_sentences = [tensorFromSentence(lang, sentences[ind], device)
+                          for ind in train_inds]
+    test_sentences = [tensorFromSentence(lang, sentences[ind], device)
+                      for ind in test_inds]
+    eval_sentences = [sentences[ind] for ind in test_inds]
 
     print(f"Train Size: {len(train_inds)} -- Test Size: {len(test_inds)}")
 
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
-        training_pair = random.choice(training_pairs)
-        input_tensor = training_pair[0]
-        target_tensor = training_pair[1]
+        training_sentence = random.choice(training_sentences)
+        input_tensor = training_sentence
+        target_tensor = training_sentence
 
         if type(decoder) == AttnDecoderRNN:
             loss = train_attention(
@@ -246,9 +246,9 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
             # Evaluate current model
             test_loss_total = 0
             for el in range(n_evals):
-                test_pair = random.choice(test_pairs)
-                input_tensor = test_pair[0]
-                target_tensor = test_pair[1]
+                test_sentence = random.choice(test_sentences)
+                input_tensor = test_sentence
+                target_tensor = test_sentence
 
                 if type(decoder) == AttnDecoderRNN:
                     test_loss_total += test_attention(
@@ -281,13 +281,12 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, encoder_optimiz
 
         if iter % eval_every == 0:
             print(f"\nModel evaluation after {iter} iterations:")
-            evaluateRandomly(encoder, decoder, input_lang, output_lang, eval_pairs, max_length,
-                             device, n=10)
+            evaluateRandomly(
+                encoder, decoder, lang, eval_sentences, max_length, device, n=10)
 
     # Final Model Evaluation
     print("\nFinal Model Evaluation:")
-    evaluateRandomly(encoder, decoder, input_lang, output_lang, eval_pairs, max_length,
-                     device, n=10)
+    evaluateRandomly(encoder, decoder, lang,  eval_sentences, max_length, device, n=10)
 
 
 def test(input_tensor, target_tensor, encoder, decoder, criterion, device):
@@ -364,12 +363,12 @@ def test_attention(input_tensor, target_tensor, encoder, decoder, criterion, max
         return loss.item() / target_length
 
 
-def evaluate(encoder, decoder, input_lang, output_lang, sentence, device):
+def evaluate(encoder, decoder, lang, sentence, device):
     with torch.no_grad():
         encoder.eval()
         decoder.eval()
 
-        input_tensor = tensorFromSentence(input_lang, sentence, device)
+        input_tensor = tensorFromSentence(lang, sentence, device)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
@@ -389,7 +388,7 @@ def evaluate(encoder, decoder, input_lang, output_lang, sentence, device):
                 decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(output_lang.index2word[topi.item()])
+                decoded_words.append(lang.index2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()
 
@@ -399,13 +398,13 @@ def evaluate(encoder, decoder, input_lang, output_lang, sentence, device):
         return decoded_words
 
 
-def evaluate_attention(encoder, decoder, input_lang, output_lang, sentence, max_length,
+def evaluate_attention(encoder, decoder, lang, sentence, max_length,
                        device):
     with torch.no_grad():
         encoder.eval()
         decoder.eval()
 
-        input_tensor = tensorFromSentence(input_lang, sentence, device)
+        input_tensor = tensorFromSentence(lang, sentence, device)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
@@ -431,7 +430,7 @@ def evaluate_attention(encoder, decoder, input_lang, output_lang, sentence, max_
                 decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(output_lang.index2word[topi.item()])
+                decoded_words.append(lang.index2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()
 
@@ -441,18 +440,17 @@ def evaluate_attention(encoder, decoder, input_lang, output_lang, sentence, max_
         return decoded_words, decoder_attentions[:di + 1]
 
 
-def evaluateRandomly(encoder, decoder, input_lang, output_lang, pairs, max_length, device,
+def evaluateRandomly(encoder, decoder, lang, sentences, max_length, device,
                      n=10):
     for i in range(n):
-        pair = random.choice(pairs)
-        print('>', pair[0])
-        print('=', pair[1])
+        sentence = random.choice(sentences)
+        print('>', sentence)
         if type(decoder) == AttnDecoderRNN:
             output_words, attentions = evaluate_attention(
-                encoder, decoder, input_lang, output_lang, pair[0], max_length, device)
+                encoder, decoder, lang, sentence, max_length, device)
         else:
             output_words = \
-                evaluate(encoder, decoder, input_lang, output_lang, pair[0], device)
+                evaluate(encoder, decoder, lang, sentence, device)
         output_sentence = ' '.join(output_words)
         print('<', output_sentence)
         print('')

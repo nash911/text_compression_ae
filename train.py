@@ -40,19 +40,18 @@ def main(args):
 
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
 
-    input_lang, output_lang, pairs = prepareData(
-        'eng', 'fra', args.max_length, prefix=False, min_length=args.min_length,
-        reverse=True)
-    print(random.choice(pairs))
-    print(f"Number of pairs: {len(pairs)}")
+    lang, sentences = prepareData(
+        'eng', 'fra', args.max_length, prefix=False, min_length=args.min_length)
+    print(random.choice(sentences))
+    print(f"Number of sentences: {len(sentences)}")
 
-    encoder = EncoderRNN(input_lang.n_words, args.hidden_size, device).to(device)
+    encoder = EncoderRNN(lang.n_words, args.hidden_size, device).to(device)
 
     if args.attention:
-        decoder = AttnDecoderRNN(args.hidden_size, output_lang.n_words, args.max_length,
+        decoder = AttnDecoderRNN(args.hidden_size, lang.n_words, args.max_length,
                                  device, dropout_p=args.dropout).to(device)
     else:
-        decoder = DecoderRNN(args.hidden_size, output_lang.n_words, device).to(device)
+        decoder = DecoderRNN(args.hidden_size, lang.n_words, device).to(device)
 
     # encoder_optimizer = optim.SGD(encoder.parameters(), lr=args.lr)
     # decoder_optimizer = optim.SGD(decoder.parameters(), lr=args.lr)
@@ -61,10 +60,10 @@ def main(args):
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=args.lr)
 
     trainIters(
-        encoder, decoder, input_lang, output_lang, pairs, encoder_optimizer,
-        decoder_optimizer, n_iters=args.n_iters, device=device, path=training_dir,
-        max_length=args.max_length, teacher_ratio=args.teacher_ratio, print_every=100,
-        eval_every=5000, plot_show=args.plot)
+        encoder, decoder, lang, sentences, encoder_optimizer, decoder_optimizer,
+        n_iters=args.n_iters, device=device, path=training_dir, print_every=100,
+        max_length=args.max_length, teacher_ratio=args.teacher_ratio, eval_every=5000,
+        plot_show=args.plot)
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ def normalizeString(s):
     return s
 
 
-def readLangs(lang1, lang2, reverse=False):
+def readLangs(lang1, lang2):
     print("Reading lines...")
 
     # Read the file and split into lines
@@ -52,49 +52,39 @@ def readLangs(lang1, lang2, reverse=False):
         read().strip().split('\n')
 
     # Split every line into pairs and normalize
-    pairs = [[normalizeString(s) for s in l.split('\t')[:2]] for l in lines]
+    sentences = [[normalizeString(s) for s in l.split('\t')[:1]] for l in lines]
+    lang = Lang(lang1)
 
-    # Reverse pairs, make Lang instances
-    if reverse:
-        pairs = [list(reversed(p)) for p in pairs]
-        input_lang = Lang(lang2)
-        output_lang = Lang(lang1)
-    else:
-        input_lang = Lang(lang1)
-        output_lang = Lang(lang2)
-
-    return input_lang, output_lang, pairs
+    return lang, sentences
 
 
-def filterPair(p, max_length, prefix=True, min_length=None):
+def filterSentence(sentence, max_length, prefix=True, min_length=None):
     if min_length is None:
-        return len(p[0].split(' ')) < max_length and \
-            len(p[1].split(' ')) < max_length and \
-            (p[1].startswith(eng_prefixes) if prefix else True)
+        return len(sentence.split(' ')) < max_length and \
+            (sentence.startswith(eng_prefixes) if prefix else True)
     else:
-        return len(p[0].split(' ')) >= min_length and len(p[0].split(' ')) < max_length \
-            and len(p[1].split(' ')) < max_length and \
-            (p[1].startswith(eng_prefixes) if prefix else True)
+        return len(sentence.split(' ')) >= min_length and \
+            len(sentence.split(' ')) < max_length and \
+            (sentence.startswith(eng_prefixes) if prefix else True)
 
 
-def filterPairs(pairs, max_length, prefix=True, min_length=None):
-    return [pair for pair in pairs if filterPair(pair, max_length, prefix=prefix,
-                                                 min_length=min_length)]
+def filterSentences(sentences, max_length, prefix=True, min_length=None):
+    return [sentence[0] for sentence in sentences if
+            filterSentence(sentence[0], max_length, prefix=prefix, min_length=min_length)]
 
 
-def prepareData(lang1, lang2, max_length, prefix=True, min_length=None, reverse=False):
-    input_lang, output_lang, pairs = readLangs(lang1, lang2, reverse)
-    print("Read %s sentence pairs" % len(pairs))
-    pairs = filterPairs(pairs, max_length, prefix=prefix, min_length=min_length)
-    print("Trimmed to %s sentence pairs" % len(pairs))
+def prepareData(lang1, lang2, max_length, prefix=True, min_length=None):
+    lang, sentences = readLangs(lang1, lang2)
+    print("Read %s sentences" % len(sentences))
+    sentences = filterSentences(sentences, max_length, prefix=prefix,
+                                min_length=min_length)
+    print("Trimmed to %s sentences" % len(sentences))
     print("Counting words...")
-    for pair in pairs:
-        input_lang.addSentence(pair[0])
-        output_lang.addSentence(pair[1])
+    for sentence in sentences:
+        lang.addSentence(sentence)
     print("Counted words:")
-    print(input_lang.name, input_lang.n_words)
-    print(output_lang.name, output_lang.n_words)
-    return input_lang, output_lang, pairs
+    print(lang.name, lang.n_words)
+    return lang, sentences
 
 
 def indexesFromSentence(lang, sentence):
@@ -105,12 +95,6 @@ def tensorFromSentence(lang, sentence, device):
     indexes = indexesFromSentence(lang, sentence)
     indexes.append(EOS_token)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
-
-
-def tensorsFromPair(input_lang, output_lang, pair, device):
-    input_tensor = tensorFromSentence(input_lang, pair[0], device)
-    target_tensor = tensorFromSentence(output_lang, pair[1], device)
-    return (input_tensor, target_tensor)
 
 
 def asMinutes(s):
