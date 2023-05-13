@@ -40,7 +40,7 @@ def main(args):
 
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
 
-    lang, sentences = prepareData(
+    lang, sentences, max_length = prepareData(
         'eng', 'fra', args.max_length, prefix=False, min_length=args.min_length,
         char=args.char)
     print(random.choice(sentences))
@@ -50,9 +50,10 @@ def main(args):
                          device).to(device)
 
     if args.attention:
-        decoder = AttnDecoderRNN(args.hidden_size, (lang.n_chars if args.char else
-                                                    lang.n_words), args.max_length,
-                                 device, dropout_p=args.dropout).to(device)
+        decoder = AttnDecoderRNN(
+            args.hidden_size, (lang.n_chars if args.char else lang.n_words),
+            (max_length if args.max_length is None else args.max_length), device,
+            dropout_p=args.dropout).to(device)
     else:
         decoder = DecoderRNN(args.hidden_size, (lang.n_chars if args.char else
                                                 lang.n_words), device).to(device)
@@ -66,8 +67,9 @@ def main(args):
     trainIters(
         encoder, decoder, lang, sentences, encoder_optimizer, decoder_optimizer,
         n_iters=args.n_iters, device=device, path=training_dir, print_every=100,
-        max_length=args.max_length, teacher_ratio=args.teacher_ratio, eval_every=5000,
-        char=args.char, plot_show=args.plot)
+        max_length=(max_length if args.max_length is None else args.max_length),
+        teacher_ratio=args.teacher_ratio, eval_every=5000, char=args.char,
+        plot_show=args.plot)
 
 
 if __name__ == "__main__":
@@ -84,15 +86,15 @@ if __name__ == "__main__":
                         help='attention mechanism for decoder (default: False)')
     parser.add_argument('--min_length', type=int, default=None,
                         help='minimum sequence length of input (default: None)')
-    parser.add_argument('--max_length', type=int, default=10,
-                        help='maximum sequence length (default: 10)')
+    parser.add_argument('--max_length', type=int, default=None,
+                        help='maximum sequence length (default: None)')
     parser.add_argument('--dropout', type=float, default=0.1,
                         help='dropout probability (default: 0.1)')
     parser.add_argument('--teacher_ratio', type=float, default=0.5,
                         help='teacher forcing ratio for decoder input (default: 0.5)')
     parser.add_argument('--lr', type=float, default=0.001,
                         help='learning rate for optimizer (default: 0.001)')
-    parser.add_argument('--n_iters', type=int, default=75000,
+    parser.add_argument('--n_iters', type=int, default=100000,
                         help='number of training iterations (default: 75000)')
     parser.add_argument('--data-path', type=str, default=None,
                         help='Path to the data file (default: None)')

@@ -282,11 +282,12 @@ def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_opt
         if iter % eval_every == 0:
             print(f"\nModel evaluation after {iter} iterations:")
             evaluateRandomly(
-                encoder, decoder, lang, eval_sentences, max_length, device, n=10)
+                encoder, decoder, lang, eval_sentences, max_length, device, char, n=10)
 
     # Final Model Evaluation
     print("\nFinal Model Evaluation:")
-    evaluateRandomly(encoder, decoder, lang,  eval_sentences, max_length, device, n=10)
+    evaluateRandomly(encoder, decoder, lang,  eval_sentences, max_length, device, char,
+                     n=10)
 
 
 def test(input_tensor, target_tensor, encoder, decoder, criterion, device):
@@ -363,7 +364,7 @@ def test_attention(input_tensor, target_tensor, encoder, decoder, criterion, max
         return loss.item() / target_length
 
 
-def evaluate(encoder, decoder, lang, sentence, device):
+def evaluate(encoder, decoder, lang, sentence, max_length, device, char=False):
     with torch.no_grad():
         encoder.eval()
         decoder.eval()
@@ -388,7 +389,11 @@ def evaluate(encoder, decoder, lang, sentence, device):
                 decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(lang.index2word[topi.item()])
+                decoded_words.append((lang.index2char[topi.item()] if char else
+                                      lang.index2word[topi.item()]))
+
+            if len(decoded_words) > max_length:
+                break
 
             decoder_input = topi.squeeze().detach()
 
@@ -398,8 +403,7 @@ def evaluate(encoder, decoder, lang, sentence, device):
         return decoded_words
 
 
-def evaluate_attention(encoder, decoder, lang, sentence, max_length,
-                       device):
+def evaluate_attention(encoder, decoder, lang, sentence, max_length, device, char=False):
     with torch.no_grad():
         encoder.eval()
         decoder.eval()
@@ -430,7 +434,8 @@ def evaluate_attention(encoder, decoder, lang, sentence, max_length,
                 decoded_words.append('<EOS>')
                 break
             else:
-                decoded_words.append(lang.index2word[topi.item()])
+                decoded_words.append((lang.index2char[topi.item()] if char else
+                                      lang.index2word[topi.item()]))
 
             decoder_input = topi.squeeze().detach()
 
@@ -440,17 +445,17 @@ def evaluate_attention(encoder, decoder, lang, sentence, max_length,
         return decoded_words, decoder_attentions[:di + 1]
 
 
-def evaluateRandomly(encoder, decoder, lang, sentences, max_length, device,
+def evaluateRandomly(encoder, decoder, lang, sentences, max_length, device, char=False,
                      n=10):
     for i in range(n):
         sentence = random.choice(sentences)
         print('>', sentence)
         if type(decoder) == AttnDecoderRNN:
             output_words, attentions = evaluate_attention(
-                encoder, decoder, lang, sentence, max_length, device)
+                encoder, decoder, lang, sentence, max_length, device, char)
         else:
             output_words = \
-                evaluate(encoder, decoder, lang, sentence, device)
-        output_sentence = ' '.join(output_words)
+                evaluate(encoder, decoder, lang, sentence, max_length, device, char)
+        output_sentence = ''.join(output_words) if char else ' '.join(output_words)
         print('<', output_sentence)
         print('')

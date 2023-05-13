@@ -73,7 +73,7 @@ def readChars(lang1, lang2):
     return char, sentences
 
 
-def filterWordSentence(sentence, max_length, prefix=True, min_length=None):
+def filterWordSentence(sentence, max_length=None, prefix=True, min_length=None):
     if min_length is None:
         return len(sentence.split(' ')) < max_length and \
             (sentence.startswith(eng_prefixes) if prefix else True)
@@ -83,7 +83,7 @@ def filterWordSentence(sentence, max_length, prefix=True, min_length=None):
             (sentence.startswith(eng_prefixes) if prefix else True)
 
 
-def filterCharSentence(sentence, max_length, prefix=True, min_length=None):
+def filterCharSentence(sentence, max_length=None, prefix=True, min_length=None):
     if min_length is None:
         return len(sentence) < max_length and \
             (sentence.startswith(eng_prefixes) if prefix else True)
@@ -93,7 +93,7 @@ def filterCharSentence(sentence, max_length, prefix=True, min_length=None):
             (sentence.startswith(eng_prefixes) if prefix else True)
 
 
-def filterSentences(sentences, max_length, prefix=True, min_length=None, char=False):
+def filterSentences(sentences, max_length=None, prefix=True, min_length=None, char=False):
     if char:
         return [sentence[0] for sentence in sentences if filterCharSentence(
             sentence[0], max_length, prefix=prefix, min_length=min_length)]
@@ -102,19 +102,22 @@ def filterSentences(sentences, max_length, prefix=True, min_length=None, char=Fa
             sentence[0], max_length, prefix=prefix, min_length=min_length)]
 
 
-def prepareData(lang1, lang2, max_length, prefix=True, min_length=None, char=False):
+def prepareData(lang1, lang2, max_length=None, prefix=True, min_length=None, char=False):
     if char:
         lang, sentences = readChars(lang1, lang2)
-        print("Min Sentence Length (chars): " +
-              f"{min([len(sentence[0]) for sentence in sentences])}")
-        print("Max Sentence Length (chars): " +
-              f"{max([len(sentence[0]) for sentence in sentences])}")
+        max_sentence_length = max([len(sentence[0]) for sentence in sentences])
+        min_sentence_length = min([len(sentence[0]) for sentence in sentences])
+
+        max_length = (max_sentence_length if max_length is None else max_length)
     else:
         lang, sentences = readLangs(lang1, lang2)
-        print("Min Sentence Length (words): " +
-              f"{min([len(sentence[0].split(' ')) for sentence in sentences])}")
-        print("Max Sentence Length (words): " +
-              f"{max([len(sentence[0].split(' ')) for sentence in sentences])}")
+        max_sentence_length = max([len(sentence[0].split(' ')) for sentence in sentences])
+        min_sentence_length = min([len(sentence[0].split(' ')) for sentence in sentences])
+
+        max_length = (max_sentence_length if max_length is None else max_length)
+
+    print(f"Min Sentence Length (chars): {max_sentence_length}")
+    print(f"Max Sentence Length (chars): {min_sentence_length}")
     print("Read %s sentences" % len(sentences))
     sentences = filterSentences(sentences, max_length, prefix=prefix,
                                 min_length=min_length, char=char)
@@ -129,7 +132,7 @@ def prepareData(lang1, lang2, max_length, prefix=True, min_length=None, char=Fal
         print("Counting words...")
         print("Counted words:")
         print(lang.name, lang.n_words)
-    return lang, sentences
+    return lang, sentences, max_length
 
 
 def indexesFromSentence(lang, sentence, char=False):
