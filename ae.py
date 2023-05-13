@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import tensorFromSentence, timeSince, plot_loss
+from utils import tensorFromText, timeSince, plot_loss
 
 SOS_token = 0
 EOS_token = 1
@@ -193,7 +193,7 @@ def train_attention(input_tensor, target_tensor, encoder, decoder, encoder_optim
 
 
 def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_optimizer,
-               n_iters, device, max_length, teacher_ratio=0.5, n_evals=20,
+               n_iters, device, max_length, teacher_ratio=0.5, n_evals=20, char=False,
                print_every=1000, eval_every=1000, plot_every=100, plot_show=False,
                path=None):
     start = time.time()
@@ -216,9 +216,9 @@ def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_opt
     test_inds = sentence_inds[train_size:]
 
     # Create tensor from sentences for training and validation sets
-    training_sentences = [tensorFromSentence(lang, sentences[ind], device)
+    training_sentences = [tensorFromText(lang, sentences[ind], device, char)
                           for ind in train_inds]
-    test_sentences = [tensorFromSentence(lang, sentences[ind], device)
+    test_sentences = [tensorFromText(lang, sentences[ind], device, char)
                       for ind in test_inds]
     eval_sentences = [sentences[ind] for ind in test_inds]
 
@@ -368,7 +368,7 @@ def evaluate(encoder, decoder, lang, sentence, device):
         encoder.eval()
         decoder.eval()
 
-        input_tensor = tensorFromSentence(lang, sentence, device)
+        input_tensor = tensorFromText(lang, sentence, device, char)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
@@ -404,7 +404,7 @@ def evaluate_attention(encoder, decoder, lang, sentence, max_length,
         encoder.eval()
         decoder.eval()
 
-        input_tensor = tensorFromSentence(lang, sentence, device)
+        input_tensor = tensorFromText(lang, sentence, device, char)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 

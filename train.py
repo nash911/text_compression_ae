@@ -41,17 +41,21 @@ def main(args):
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
 
     lang, sentences = prepareData(
-        'eng', 'fra', args.max_length, prefix=False, min_length=args.min_length)
+        'eng', 'fra', args.max_length, prefix=False, min_length=args.min_length,
+        char=args.char)
     print(random.choice(sentences))
-    print(f"Number of sentences: {len(sentences)}")
+    # print(f"char2index:\n{lang.char2index}")
 
-    encoder = EncoderRNN(lang.n_words, args.hidden_size, device).to(device)
+    encoder = EncoderRNN((lang.n_chars if args.char else lang.n_words), args.hidden_size,
+                         device).to(device)
 
     if args.attention:
-        decoder = AttnDecoderRNN(args.hidden_size, lang.n_words, args.max_length,
+        decoder = AttnDecoderRNN(args.hidden_size, (lang.n_chars if args.char else
+                                                    lang.n_words), args.max_length,
                                  device, dropout_p=args.dropout).to(device)
     else:
-        decoder = DecoderRNN(args.hidden_size, lang.n_words, device).to(device)
+        decoder = DecoderRNN(args.hidden_size, (lang.n_chars if args.char else
+                                                lang.n_words), device).to(device)
 
     # encoder_optimizer = optim.SGD(encoder.parameters(), lr=args.lr)
     # decoder_optimizer = optim.SGD(decoder.parameters(), lr=args.lr)
@@ -63,11 +67,14 @@ def main(args):
         encoder, decoder, lang, sentences, encoder_optimizer, decoder_optimizer,
         n_iters=args.n_iters, device=device, path=training_dir, print_every=100,
         max_length=args.max_length, teacher_ratio=args.teacher_ratio, eval_every=5000,
-        plot_show=args.plot)
+        char=args.char, plot_show=args.plot)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Expert Policy Distillation')
+    parser.add_argument('--char', type=bool, default=False,
+                        action=argparse.BooleanOptionalAction,
+                        help='seq model at individual character level (default: False)')
     parser.add_argument('--batch-size', type=int, default=32,
                         help='input batch size for training (default: 32)')
     parser.add_argument('--hidden_size', type=int, default=256,

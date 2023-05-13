@@ -11,6 +11,7 @@ import math
 
 import matplotlib.pyplot as plt
 from lang import Lang
+from char import Char
 
 SOS_token = 0
 EOS_token = 1
@@ -58,7 +59,21 @@ def readLangs(lang1, lang2):
     return lang, sentences
 
 
-def filterSentence(sentence, max_length, prefix=True, min_length=None):
+def readChars(lang1, lang2):
+    print("Reading lines...")
+
+    # Read the file and split into lines
+    lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
+        read().strip().split('\n')
+
+    # Split every line into pairs and normalize
+    sentences = [[normalizeString(s) for s in l.split('\t')[:1]] for l in lines]
+    char = Char(lang1)
+
+    return char, sentences
+
+
+def filterWordSentence(sentence, max_length, prefix=True, min_length=None):
     if min_length is None:
         return len(sentence.split(' ')) < max_length and \
             (sentence.startswith(eng_prefixes) if prefix else True)
@@ -68,31 +83,64 @@ def filterSentence(sentence, max_length, prefix=True, min_length=None):
             (sentence.startswith(eng_prefixes) if prefix else True)
 
 
-def filterSentences(sentences, max_length, prefix=True, min_length=None):
-    return [sentence[0] for sentence in sentences if
-            filterSentence(sentence[0], max_length, prefix=prefix, min_length=min_length)]
+def filterCharSentence(sentence, max_length, prefix=True, min_length=None):
+    if min_length is None:
+        return len(sentence) < max_length and \
+            (sentence.startswith(eng_prefixes) if prefix else True)
+    else:
+        return len(sentence) >= min_length and \
+            len(sentence) < max_length and \
+            (sentence.startswith(eng_prefixes) if prefix else True)
 
 
-def prepareData(lang1, lang2, max_length, prefix=True, min_length=None):
-    lang, sentences = readLangs(lang1, lang2)
+def filterSentences(sentences, max_length, prefix=True, min_length=None, char=False):
+    if char:
+        return [sentence[0] for sentence in sentences if filterCharSentence(
+            sentence[0], max_length, prefix=prefix, min_length=min_length)]
+    else:
+        return [sentence[0] for sentence in sentences if filterWordSentence(
+            sentence[0], max_length, prefix=prefix, min_length=min_length)]
+
+
+def prepareData(lang1, lang2, max_length, prefix=True, min_length=None, char=False):
+    if char:
+        lang, sentences = readChars(lang1, lang2)
+        print("Min Sentence Length (chars): " +
+              f"{min([len(sentence[0]) for sentence in sentences])}")
+        print("Max Sentence Length (chars): " +
+              f"{max([len(sentence[0]) for sentence in sentences])}")
+    else:
+        lang, sentences = readLangs(lang1, lang2)
+        print("Min Sentence Length (words): " +
+              f"{min([len(sentence[0].split(' ')) for sentence in sentences])}")
+        print("Max Sentence Length (words): " +
+              f"{max([len(sentence[0].split(' ')) for sentence in sentences])}")
     print("Read %s sentences" % len(sentences))
     sentences = filterSentences(sentences, max_length, prefix=prefix,
-                                min_length=min_length)
+                                min_length=min_length, char=char)
     print("Trimmed to %s sentences" % len(sentences))
-    print("Counting words...")
     for sentence in sentences:
         lang.addSentence(sentence)
-    print("Counted words:")
-    print(lang.name, lang.n_words)
+    if char:
+        print("Counting characters...")
+        print("Counted characters:")
+        print(lang.name, lang.n_chars)
+    else:
+        print("Counting words...")
+        print("Counted words:")
+        print(lang.name, lang.n_words)
     return lang, sentences
 
 
-def indexesFromSentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')]
+def indexesFromSentence(lang, sentence, char=False):
+    if char:
+        return [lang.char2index[character] for character in sentence]
+    else:
+        return [lang.word2index[word] for word in sentence.split(' ')]
 
 
-def tensorFromSentence(lang, sentence, device):
-    indexes = indexesFromSentence(lang, sentence)
+def tensorFromText(lang, sentence, device, char=False):
+    indexes = indexesFromSentence(lang, sentence, char)
     indexes.append(EOS_token)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
