@@ -41,10 +41,9 @@ def main(args):
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
 
     lang, sentences, max_length = prepareData(
-        'eng', 'fra', args.max_length, prefix=False, min_length=args.min_length,
-        char=args.char)
+        args.data_path, args.max_length,  min_length=args.min_length, char=args.char)
     print(random.choice(sentences))
-    # print(f"char2index:\n{lang.char2index}")
+    print(f"char2index:\n{lang.char2index}")
 
     encoder = EncoderRNN((lang.n_chars if args.char else lang.n_words), args.hidden_size,
                          device).to(device)
@@ -96,7 +95,7 @@ if __name__ == "__main__":
                         help='learning rate for optimizer (default: 0.001)')
     parser.add_argument('--n_iters', type=int, default=100000,
                         help='number of training iterations (default: 75000)')
-    parser.add_argument('--data-path', type=str, default=None,
+    parser.add_argument('--data_path', type=str, default=None,
                         help='Path to the data file (default: None)')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument('--gpu', type=int, default=None, help='GPU (default: None)')
