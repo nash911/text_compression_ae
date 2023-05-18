@@ -15,20 +15,23 @@ EOS_token = 1
 
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_1_size, hidden_2_size, device):
+    def __init__(self, input_size, hidden_1_size, hidden_2_size, device, dropout_p=0.1):
         super(EncoderRNN, self).__init__()
         self.hidden_1_size = hidden_1_size
         self.hidden_2_size = hidden_2_size
         self.device = device
+        self.dropout_p = dropout_p
 
         self.embedding = nn.Embedding(input_size, hidden_1_size)
         self.gru_1 = nn.GRU(hidden_1_size, hidden_1_size)
         self.gru_2 = nn.GRU(hidden_1_size, hidden_2_size)
+        self.dropout = nn.Dropout(self.dropout_p)
 
     def forward(self, input, hidden_1, hidden_2):
         embedded = self.embedding(input).view(1, 1, -1)
         output = embedded
         output, hidden_1 = self.gru_1(output, hidden_1)
+        output = self.dropout(output)
         output, hidden_2 = self.gru_2(output, hidden_2)
         return output, hidden_1, hidden_2
 

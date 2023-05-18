@@ -5,7 +5,7 @@ import numpy as np
 import os
 import torch
 import argparse
-# import json
+import json
 
 from datetime import datetime
 from shutil import rmtree
@@ -38,6 +38,10 @@ def main(args):
     os.makedirs(training_dir + 'models')
     os.makedirs(training_dir + 'params')
 
+    # Dump params to file
+    with open(training_dir + 'params/params.dat', 'w') as jf:
+        json.dump(vars(args), jf, indent=4)
+
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
 
     lang, sentences, max_length = prepareData(
@@ -45,14 +49,15 @@ def main(args):
     print(random.choice(sentences))
     print(f"char2index:\n{lang.char2index}")
 
-    encoder = EncoderRNN((lang.n_chars if args.char else lang.n_words),
-                         args.hidden_1_size, args.hidden_2_size, device).to(device)
+    encoder = EncoderRNN(
+        (lang.n_chars if args.char else lang.n_words), args.hidden_1_size,
+        args.hidden_2_size, device, dropout_p=args.encoder_dropout).to(device)
 
     if args.attention:
         decoder = AttnDecoderRNN(
             args.hidden_2_size, (lang.n_chars if args.char else lang.n_words),
             (max_length if args.max_length is None else args.max_length), device,
-            dropout_p=args.dropout).to(device)
+            dropout_p=args.decoder_dropout).to(device)
     else:
         decoder = DecoderRNN(args.hidden_2_size, (lang.n_chars if args.char else
                                                   lang.n_words), device).to(device)
@@ -89,8 +94,10 @@ if __name__ == "__main__":
                         help='minimum sequence length of input (default: None)')
     parser.add_argument('--max_length', type=int, default=None,
                         help='maximum sequence length (default: None)')
-    parser.add_argument('--dropout', type=float, default=0.1,
-                        help='dropout probability (default: 0.1)')
+    parser.add_argument('--encoder_dropout', type=float, default=0.1,
+                        help='encoder dropout probability (default: 0.1)')
+    parser.add_argument('--decoder_dropout', type=float, default=0.1,
+                        help='decoder dropout probability (default: 0.1)')
     parser.add_argument('--teacher_ratio', type=float, default=0.5,
                         help='teacher forcing ratio for decoder input (default: 0.5)')
     parser.add_argument('--lr', type=float, default=0.001,
