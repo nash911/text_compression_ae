@@ -45,17 +45,17 @@ def main(args):
     print(random.choice(sentences))
     print(f"char2index:\n{lang.char2index}")
 
-    encoder = EncoderRNN((lang.n_chars if args.char else lang.n_words), args.hidden_size,
-                         device).to(device)
+    encoder = EncoderRNN((lang.n_chars if args.char else lang.n_words),
+                         args.hidden_1_size, args.hidden_2_size, device).to(device)
 
     if args.attention:
         decoder = AttnDecoderRNN(
-            args.hidden_size, (lang.n_chars if args.char else lang.n_words),
+            args.hidden_2_size, (lang.n_chars if args.char else lang.n_words),
             (max_length if args.max_length is None else args.max_length), device,
             dropout_p=args.dropout).to(device)
     else:
-        decoder = DecoderRNN(args.hidden_size, (lang.n_chars if args.char else
-                                                lang.n_words), device).to(device)
+        decoder = DecoderRNN(args.hidden_2_size, (lang.n_chars if args.char else
+                                                  lang.n_words), device).to(device)
 
     # encoder_optimizer = optim.SGD(encoder.parameters(), lr=args.lr)
     # decoder_optimizer = optim.SGD(decoder.parameters(), lr=args.lr)
@@ -78,8 +78,10 @@ if __name__ == "__main__":
                         help='seq model at individual character level (default: False)')
     parser.add_argument('--batch-size', type=int, default=32,
                         help='input batch size for training (default: 32)')
-    parser.add_argument('--hidden_size', type=int, default=256,
-                        help='hidden representation size (default: 256)')
+    parser.add_argument('--hidden_1_size', type=int, default=256,
+                        help='hidden layer 1 size (default: 256)')
+    parser.add_argument('--hidden_2_size', type=int, default=128,
+                        help='hidden layer 2 size (default: 128)')
     parser.add_argument('--attention', type=bool, default=False,
                         action=argparse.BooleanOptionalAction,
                         help='attention mechanism for decoder (default: False)')
