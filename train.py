@@ -55,12 +55,14 @@ def main(args):
 
     if args.attention:
         decoder = AttnDecoderRNN(
-            args.hidden_2_size, (lang.n_chars if args.char else lang.n_words),
-            (max_length if args.max_length is None else args.max_length), device,
-            dropout_p=args.decoder_dropout).to(device)
+            args.hidden_2_size, args.hidden_1_size,
+            (lang.n_chars if args.char else lang.n_words),
+            (max_length if args.max_length is None else args.max_length),
+            device, dropout_p=args.decoder_dropout).to(device)
     else:
-        decoder = DecoderRNN(args.hidden_2_size, (lang.n_chars if args.char else
-                                                  lang.n_words), device).to(device)
+        decoder = DecoderRNN(
+            args.hidden_2_size, args.hidden_1_size, (lang.n_chars if args.char else
+                                                     lang.n_words), device).to(device)
 
     # encoder_optimizer = optim.SGD(encoder.parameters(), lr=args.lr)
     # decoder_optimizer = optim.SGD(decoder.parameters(), lr=args.lr)
