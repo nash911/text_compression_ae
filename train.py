@@ -72,7 +72,7 @@ def main(args):
 
     trainIters(
         encoder, decoder, lang, sentences, encoder_optimizer, decoder_optimizer,
-        n_iters=args.n_iters, device=device, path=training_dir, print_every=100,
+        n_iters=args.n_iters, device=device, path=training_dir, print_plot_every=100,
         max_length=(max_length if args.max_length is None else args.max_length),
         teacher_ratio=args.teacher_ratio, eval_every=5000, char=args.char,
         plot_show=args.plot)

@@ -179,7 +179,8 @@ def timeSince(since, percent):
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
-def plot_loss(axs, train_loss, valid_loss, plot_freq=1, show=False, save=True, path=None):
+def plot_loss(axs, train_loss, valid_loss, plot_freq=1, show=False, save=True, path=None,
+              plot_text=None):
     # Training (NLL) Loss plot
     x = (np.arange(len(train_loss)) * plot_freq).tolist()
     axs.clear()
@@ -191,8 +192,19 @@ def plot_loss(axs, train_loss, valid_loss, plot_freq=1, show=False, save=True, p
     axs.set(xlabel='Iterations')
     axs.legend(loc='upper right')
 
+    if plot_text is not None:
+        x_min = axs.get_xlim()[0]
+        y_max = axs.get_ylim()[1]
+        axs.text(x_min * 1.0, y_max * 1.01, plot_text, fontsize=14, color='Black')
+
     if save:
         plt.savefig(path + "plots/learning_curves.png")
+
+        with open(path + 'plots/train_loss.npy', 'wb') as f:
+            np.save(f, np.array(train_loss))
+
+        with open(path + 'plots/valid_loss.npy', 'wb') as f:
+            np.save(f, np.array(valid_loss))
 
     if show:
         plt.show(block=False)

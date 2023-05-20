@@ -216,8 +216,7 @@ def train_attention(input_tensor, target_tensor, encoder, decoder, encoder_optim
 
 def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_optimizer,
                n_iters, device, max_length, teacher_ratio=0.5, n_evals=20, char=False,
-               print_every=1000, eval_every=1000, plot_every=100, plot_show=False,
-               path=None):
+               print_plot_every=100, eval_every=1000, plot_show=False, path=None):
     start = time.time()
 
     # Create a matlibplot canvas for plotting learning curves
@@ -225,9 +224,12 @@ def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_opt
 
     train_losses = []
     test_losses = []
-    print_train_loss_total = 0  # Reset every print_every
-    plot_train_loss_total = 0  # Reset every plot_every
-    test_loss_total = 0  # Reset every plot_every
+    print_train_loss_total = 0  # Reset every print_plot_every
+    plot_train_loss_total = 0  # Reset every print_plot_every
+    test_loss_total = 0  # Reset every print_plot_every
+    best_test_loss = np.inf
+    window_size = 50
+    plot_text = None
 
     # Split data into training and validation sets
     num_sentences = len(sentences)
@@ -264,7 +266,7 @@ def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_opt
         print_train_loss_total += loss
         plot_train_loss_total += loss
 
-        if iter % print_every == 0:
+        if iter % print_plot_every == 0:
             # Evaluate current model
             test_loss_total = 0
             for el in range(n_evals):
@@ -280,7 +282,7 @@ def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_opt
                     test_loss_total += test(
                         input_tensor, target_tensor, encoder, decoder, criterion, device)
 
-            print_loss_avg = print_train_loss_total / print_every
+            print_loss_avg = print_train_loss_total / print_plot_every
             print_train_loss_total = 0
 
             test_loss_avg = test_loss_total / n_evals
@@ -290,16 +292,21 @@ def trainIters(encoder, decoder, lang, sentences, encoder_optimizer, decoder_opt
                   (timeSince(start, iter / n_iters), iter, iter / n_iters * 100,
                    print_loss_avg, test_loss_avg))
 
-            if path is not None:
-                torch.save(encoder.state_dict(), path + 'models/encoder.pth')
-                torch.save(decoder.state_dict(), path + 'models/decoder.pth')
+            if len(test_losses) >= window_size and path is not None:
+                avg_test_losses = np.convolve(
+                    test_losses, np.ones((window_size,))/window_size, mode='valid')[-1]
+                if best_test_loss > avg_test_losses:
+                    torch.save(encoder.state_dict(), path + 'models/encoder.pth')
+                    torch.save(decoder.state_dict(), path + 'models/decoder.pth')
+                    best_test_loss = avg_test_losses
+                    plot_text = f"Best Model Saved @ Iteration: {iter}"
 
-        if iter % plot_every == 0:
-            plot_loss_avg = plot_train_loss_total / plot_every
+        if iter % print_plot_every == 0:
+            plot_loss_avg = plot_train_loss_total / print_plot_every
             train_losses.append(plot_loss_avg)
             plot_train_loss_total = 0
-            plot_loss(axs, train_losses, test_losses, plot_freq=plot_every,
-                      show=plot_show, save=True, path=path)
+            plot_loss(axs, train_losses, test_losses, plot_freq=print_plot_every,
+                      show=plot_show, save=True, path=path, plot_text=plot_text)
 
         if iter % eval_every == 0:
             print(f"\nModel evaluation after {iter} iterations:")
