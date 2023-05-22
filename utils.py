@@ -5,7 +5,6 @@ import numpy as np
 import unicodedata
 import torch
 import re
-import random
 import time
 import math
 
@@ -13,21 +12,8 @@ import matplotlib.pyplot as plt
 from lang import Lang
 from char import Char
 
-from matplotlib import pyplot as plt
-
 SOS_token = 0
 EOS_token = 1
-
-MAX_LENGTH = 10
-
-eng_prefixes = (
-    "i am ", "i m ",
-    "he is", "he s ",
-    "she is", "she s ",
-    "you are", "you re ",
-    "we are", "we re ",
-    "they are", "they re "
-)
 
 
 def unicodeToAscii(s):
@@ -102,8 +88,6 @@ def filterSentences(sentences, max_length=None, prefix=True, min_length=None, ch
 def prepareData(data_path, max_length=None, min_length=None, char=False):
     # Read the file and split into lines
     lines = open(data_path, encoding='utf-8').read().strip().split('\n')
-    # lines = lines[:10]
-
 
     # Split every line into individual review and normalize
     sentences = [' '.join([normalizeString(s) for s in l.split(' ')[1:]]) for l in lines]

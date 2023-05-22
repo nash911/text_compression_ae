@@ -18,9 +18,45 @@ from utils import prepareData
 
 
 def main(args):
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+    if args.params_path is not None:
+        with open(args.params_path) as pf:
+            params = json.load(pf)
+
+        seed = params['seed']
+        gpu = params['gpu']
+        data_path = params['data_path']
+        max_length = params['max_length']
+        min_length = params['min_length']
+        char = params['char']
+        hidden_1_size = params['hidden_1_size']
+        hidden_2_size = params['hidden_2_size']
+        encoder_dropout = params['encoder_dropout']
+        decoder_dropout = params['decoder_dropout']
+        attention = params['attention']
+        lr = params['lr']
+        n_iters = params['n_iters']
+        teacher_ratio = params['teacher_ratio']
+        plot = params['plot']
+    else:
+        seed = args.seed
+        gpu = args.gpu
+        data_path = args.data_path
+        max_length = args.max_length
+        min_length = args.min_length
+        char = args.char
+        hidden_1_size = args.hidden_1_size
+        hidden_2_size = args.hidden_2_size
+        encoder_dropout = args.encoder_dropout
+        decoder_dropout = args.decoder_dropout
+        attention = args.attention
+        lr = args.lr
+        n_iters = args.n_iters
+        teacher_ratio = args.teacher_ratio
+        plot = args.plot
+
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
     # Create a timestamp directory to save model, parameter and log files
     training_dir = \
@@ -42,47 +78,41 @@ def main(args):
     with open(training_dir + 'params/params.dat', 'w') as jf:
         json.dump(vars(args), jf, indent=4)
 
-    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
     lang, sentences, max_length = prepareData(
-        args.data_path, args.max_length,  min_length=args.min_length, char=args.char)
+        data_path, max_length, min_length=min_length, char=char)
     print(random.choice(sentences))
     print(f"char2index:\n{lang.char2index}")
 
-    encoder = EncoderRNN(
-        (lang.n_chars if args.char else lang.n_words), args.hidden_1_size,
-        args.hidden_2_size, device, dropout_p=args.encoder_dropout).to(device)
+    encoder = EncoderRNN((lang.n_chars if char else lang.n_words), hidden_1_size,
+                         hidden_2_size, device, dropout_p=encoder_dropout).to(device)
 
-    if args.attention:
-        decoder = AttnDecoderRNN(
-            args.hidden_2_size, args.hidden_1_size,
-            (lang.n_chars if args.char else lang.n_words),
-            (max_length if args.max_length is None else args.max_length),
-            device, dropout_p=args.decoder_dropout).to(device)
+    if attention:
+        decoder = AttnDecoderRNN(hidden_2_size, hidden_1_size,
+                                 (lang.n_chars if char else lang.n_words),
+                                 (max_length if max_length is None else max_length),
+                                 device, dropout_p=decoder_dropout).to(device)
     else:
-        decoder = DecoderRNN(
-            args.hidden_2_size, args.hidden_1_size, (lang.n_chars if args.char else
-                                                     lang.n_words), device).to(device)
+        decoder = DecoderRNN(hidden_2_size, hidden_1_size,
+                             (lang.n_chars if char else lang.n_words), device).to(device)
 
-    # encoder_optimizer = optim.SGD(encoder.parameters(), lr=args.lr)
-    # decoder_optimizer = optim.SGD(decoder.parameters(), lr=args.lr)
-
-    encoder_optimizer = optim.Adam(encoder.parameters(), lr=args.lr)
-    decoder_optimizer = optim.Adam(decoder.parameters(), lr=args.lr)
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=lr)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=lr)
 
     trainIters(
         encoder, decoder, lang, sentences, encoder_optimizer, decoder_optimizer,
-        n_iters=args.n_iters, device=device, path=training_dir, print_plot_every=100,
-        max_length=(max_length if args.max_length is None else args.max_length),
-        teacher_ratio=args.teacher_ratio, eval_every=5000, char=args.char,
-        plot_show=args.plot)
+        n_iters=n_iters, device=device, path=training_dir, print_plot_every=100,
+        max_length=(max_length if max_length is None else max_length),
+        teacher_ratio=teacher_ratio, eval_every=5000, char=char,
+        plot_show=plot)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Expert Policy Distillation')
-    parser.add_argument('--char', type=bool, default=False,
+    parser.add_argument('--char', type=bool, default=True,
                         action=argparse.BooleanOptionalAction,
-                        help='seq model at individual character level (default: False)')
+                        help='seq model at individual character level (default: True)')
     parser.add_argument('--batch-size', type=int, default=32,
                         help='input batch size for training (default: 32)')
     parser.add_argument('--hidden_1_size', type=int, default=256,
@@ -108,6 +138,9 @@ if __name__ == "__main__":
                         help='number of training iterations (default: 75000)')
     parser.add_argument('--data_path', type=str, default=None,
                         help='Path to the data file (default: None)')
+    parser.add_argument('--params_path', type=str, default=None,
+                        help='Path to file containing model/training hyperparameters ' +
+                             '(default: None)')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument('--gpu', type=int, default=None, help='GPU (default: None)')
     parser.add_argument('--plot', type=bool, default=False,
