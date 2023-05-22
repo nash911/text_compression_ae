@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "Text Compression AE"
 version = "0.1.0"
-description = "For compressing text documents using Vanilla Auto Encoders"
+description = "For compressing text documents using Vanilla Auto Encoders with Attention"
 authors = ["Avinash Ranganath <nash911@gmail.com>"]
 readme = "README.md"
 
