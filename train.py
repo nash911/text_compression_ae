@@ -28,6 +28,7 @@ def main(args):
         max_length = params['max_length']
         min_length = params['min_length']
         char = params['char']
+        ascii = params['ascii']
         hidden_1_size = params['hidden_1_size']
         hidden_2_size = params['hidden_2_size']
         encoder_dropout = params['encoder_dropout']
@@ -44,6 +45,7 @@ def main(args):
         max_length = args.max_length
         min_length = args.min_length
         char = args.char
+        ascii = args.ascii
         hidden_1_size = args.hidden_1_size
         hidden_2_size = args.hidden_2_size
         encoder_dropout = args.encoder_dropout
@@ -81,7 +83,7 @@ def main(args):
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
     lang, sentences, max_length = prepareData(
-        data_path, max_length, min_length=min_length, char=char)
+        data_path, max_length, min_length=min_length, char=char, ascii=ascii)
     print(random.choice(sentences))
     print(f"char2index:\n{lang.char2index}")
 
@@ -113,6 +115,9 @@ if __name__ == "__main__":
     parser.add_argument('--char', type=bool, default=True,
                         action=argparse.BooleanOptionalAction,
                         help='seq model at individual character level (default: True)')
+    parser.add_argument('--ascii', type=bool, default=False,
+                        action=argparse.BooleanOptionalAction,
+                        help='convert Unicode to ASCII (default: False)')
     parser.add_argument('--batch-size', type=int, default=32,
                         help='input batch size for training (default: 32)')
     parser.add_argument('--hidden_1_size', type=int, default=256,

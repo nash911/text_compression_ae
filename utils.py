@@ -25,40 +25,45 @@ def unicodeToAscii(s):
     )
 
 
-def normalizeString(s):
-    # Lowercase, trim, and remove non-letter characters
-    s = unicodeToAscii(s.lower().strip())
-    s = re.sub(r"([.!?])", r" \1", s)
-    s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+def normalizeString(s, ascii=False):
+    if ascii:
+        # Lowercase, trim, and remove non-letter characters
+        s = unicodeToAscii(s.lower().strip())
+        s = re.sub(r"([.!?])", r" \1", s)
+        s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+    else:
+        s = s.lower()
     return s
 
 
-def readLangs(lang1, lang2):
-    print("Reading lines...")
-
-    # Read the file and split into lines
-    lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
-        read().strip().split('\n')
-
-    # Split every line into pairs and normalize
-    sentences = [[normalizeString(s) for s in l.split('\t')[:1]] for l in lines]
-    lang = Lang(lang1)
-
-    return lang, sentences
-
-
-def readChars(lang1, lang2):
-    print("Reading lines...")
-
-    # Read the file and split into lines
-    lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
-        read().strip().split('\n')
-
-    # Split every line into pairs and normalize
-    sentences = [[normalizeString(s) for s in l.split('\t')[:1]] for l in lines]
-    char = Char(lang1)
-
-    return char, sentences
+# def readLangs(lang1, lang2, ascii=False):
+#     print("Reading lines...")
+#
+#     # Read the file and split into lines
+#     lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
+#         read().strip().split('\n')
+#
+#     # Split every line into pairs and normalize
+#     sentences = \
+#         [[normalizeString(s, ascii=ascii) for s in l.split('\t')[:1]] for l in lines]
+#     lang = Lang(lang1)
+#
+#     return lang, sentences
+#
+#
+# def readChars(lang1, lang2, ascii=False):
+#     print("Reading lines...")
+#
+#     # Read the file and split into lines
+#     lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
+#         read().strip().split('\n')
+#
+#     # Split every line into pairs and normalize
+#     sentences = \
+#         [[normalizeString(s, ascii=ascii) for s in l.split('\t')[:1]] for l in lines]
+#     char = Char(lang1)
+#
+#     return char, sentences
 
 
 def filterWordSentence(sentence, max_length=None, prefix=True, min_length=None):
@@ -76,7 +81,7 @@ def filterCharSentence(sentence, max_length=None, prefix=True, min_length=None):
         return len(sentence) >= min_length and len(sentence) < max_length
 
 
-def filterSentences(sentences, max_length=None, prefix=True, min_length=None, char=False):
+def filterSentences(sentences, max_length=None, prefix=True, min_length=None, char=True):
     if char:
         return [sentence for sentence in sentences if filterCharSentence(
             sentence, max_length, prefix=prefix, min_length=min_length)]
@@ -85,12 +90,13 @@ def filterSentences(sentences, max_length=None, prefix=True, min_length=None, ch
             sentence, max_length, prefix=prefix, min_length=min_length)]
 
 
-def prepareData(data_path, max_length=None, min_length=None, char=False):
+def prepareData(data_path, max_length=None, min_length=None, char=True, ascii=False):
     # Read the file and split into lines
     lines = open(data_path, encoding='utf-8').read().strip().split('\n')
 
     # Split every line into individual review and normalize
-    sentences = [' '.join([normalizeString(s) for s in l.split(' ')[1:]]) for l in lines]
+    sentences = [' '.join([normalizeString(s, ascii=ascii) for s in l.split(' ')[1:]])
+                 for l in lines]
 
     review_lens = list()
 
@@ -136,14 +142,14 @@ def prepareData(data_path, max_length=None, min_length=None, char=False):
     return lang, sentences, max_length
 
 
-def indexesFromSentence(lang, sentence, char=False):
+def indexesFromSentence(lang, sentence, char=True):
     if char:
         return [lang.char2index[character] for character in sentence]
     else:
         return [lang.word2index[word] for word in sentence.split(' ')]
 
 
-def tensorFromText(lang, sentence, device, char=False):
+def tensorFromText(lang, sentence, device, char=True):
     indexes = indexesFromSentence(lang, sentence, char)
     indexes.append(EOS_token)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
