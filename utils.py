@@ -17,8 +17,6 @@ EOS_token = 1
 
 
 def unicodeToAscii(s):
-    # Turn a Unicode string to plain ASCII, thanks to
-    # https://stackoverflow.com/a/518232/2809427
     return ''.join(
         c for c in unicodedata.normalize('NFD', s)
         if unicodedata.category(c) != 'Mn'
@@ -34,36 +32,6 @@ def normalizeString(s, ascii=False):
     else:
         s = s.lower()
     return s
-
-
-# def readLangs(lang1, lang2, ascii=False):
-#     print("Reading lines...")
-#
-#     # Read the file and split into lines
-#     lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
-#         read().strip().split('\n')
-#
-#     # Split every line into pairs and normalize
-#     sentences = \
-#         [[normalizeString(s, ascii=ascii) for s in l.split('\t')[:1]] for l in lines]
-#     lang = Lang(lang1)
-#
-#     return lang, sentences
-#
-#
-# def readChars(lang1, lang2, ascii=False):
-#     print("Reading lines...")
-#
-#     # Read the file and split into lines
-#     lines = open('data/%s-%s.txt' % (lang1, lang2), encoding='utf-8').\
-#         read().strip().split('\n')
-#
-#     # Split every line into pairs and normalize
-#     sentences = \
-#         [[normalizeString(s, ascii=ascii) for s in l.split('\t')[:1]] for l in lines]
-#     char = Char(lang1)
-#
-#     return char, sentences
 
 
 def filterWordSentence(sentence, max_length=None, prefix=True, min_length=None):

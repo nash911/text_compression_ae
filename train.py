@@ -85,7 +85,8 @@ def main(args):
     lang, sentences, max_length = prepareData(
         data_path, max_length, min_length=min_length, char=char, ascii=ascii)
     print(random.choice(sentences))
-    print(f"char2index:\n{lang.char2index}")
+    if char:
+        print(f"Unique characters:\n{lang.char2index}")
 
     encoder = EncoderRNN((lang.n_chars if char else lang.n_words), hidden_1_size,
                          hidden_2_size, device, dropout_p=encoder_dropout).to(device)
@@ -112,9 +113,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Expert Policy Distillation')
-    parser.add_argument('--char', type=bool, default=True,
+    parser.add_argument('--char', type=bool, default=False,
                         action=argparse.BooleanOptionalAction,
-                        help='seq model at individual character level (default: True)')
+                        help='seq model at individual character level (default: False)')
     parser.add_argument('--ascii', type=bool, default=False,
                         action=argparse.BooleanOptionalAction,
                         help='convert Unicode to ASCII (default: False)')

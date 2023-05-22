@@ -2,15 +2,10 @@ from __future__ import unicode_literals, print_function, division
 import random
 
 import numpy as np
-# import os
 import torch
 import argparse
 import json
 
-# from datetime import datetime
-# from shutil import rmtree
-#
-# from torch import optim
 
 from ae import EncoderRNN, DecoderRNN, AttnDecoderRNN, evaluateRandomly
 
